@@ -50,14 +50,11 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 						pass
 
 				except Exception as e:
-					self.send_error(500)
-					self.end_headers()
+					self.send_custom_error(500)
 			else:
-				self.send_error(400)
-				self.end_headers()
+				self.send_custom_error(400)
 		else:
-			self.send_error(404)
-			self.end_headers()
+			self.send_custom_error(404)
 
 	def log_dns_request(self, query):
 		"""Log DNS request details to the console."""
@@ -71,7 +68,6 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 				dns_query_base64 += '=' * (4 - missing_padding)
 			
 			dns_query_decoded = base64.urlsafe_b64decode(dns_query_base64)
-
 
 			try:
 				dns_request = dns.message.from_wire(dns_query_decoded)
@@ -87,6 +83,21 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 		return
 
 
+	def send_custom_error(self, code):
+		self.send_response(code)
+		self.send_header('Content-Type', 'text/html')
+		self.end_headers()
+		
+		if code == 404:
+			self.wfile.write(b"")
+		elif code == 500:
+			self.wfile.write(b"")
+		elif code == 400:
+			self.wfile.write(b"")
+		else:
+			self.wfile.write(b"")
+
+
 def run_server(server_class=HTTPServer, handler_class=DoHDNSHandler, port=443, cert_file="cert.pem", key_file="key.pem"):
 	server_address = ('', port)
 	httpd = server_class(server_address, handler_class)
@@ -94,8 +105,7 @@ def run_server(server_class=HTTPServer, handler_class=DoHDNSHandler, port=443, c
 	context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 	context.load_cert_chain(certfile=cert_file, keyfile=key_file)
 
-	context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1  # Disable old protocols
-	#context.verify_mode = ssl.CERT_NONE  # Do not verify client certificates
+	context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
 
 	httpd.socket = context.wrap_socket(
 		httpd.socket,
