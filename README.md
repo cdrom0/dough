@@ -1,2 +1,2 @@
-# dough
+# doh
 DNS over HTTPS Server
