@@ -7,10 +7,11 @@ from datetime import datetime
 
 # chromium-based custom dns config: https://example.net/my-custom-query{?dns}
 
+BLOCKLIST = [] # block domains, list
+
 class DoHDNSHandler(BaseHTTPRequestHandler):
 	def do_GET(self):
 		if self.path.startswith('/my-custom-query'):
-			
 			query = self.path.split('?')[1] if '?' in self.path else ''
 
 			self.log_dns_request(query)
@@ -25,14 +26,24 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 
 					dns_query_bytes = base64.urlsafe_b64decode(dns_query_base64)
 
-					try:
-						dns_request = dns.message.from_wire(dns_query_bytes)
+					dns_request = dns.message.from_wire(dns_query_bytes)
 
-						domain_name = dns_request.question[0].name.to_text()
+					domain_name = dns_request.question[0].name.to_text().rstrip('.')
 
+					if self.is_blocked(domain_name):
+						#print(f"Blocked domain requested: {domain_name}")
+
+						response = dns.message.make_response(dns_request)
+						response.set_rcode(dns.rcode.NXDOMAIN)
+
+						response_wire = response.to_wire()
+						self.send_response(200)
+						self.send_header('Content-Type', 'application/dns-message')
+						self.end_headers()
+						self.wfile.write(response_wire)
+
+					else:
 						resolver = dns.resolver.Resolver()
-						resolver.nameservers = ['8.8.8.8']
-						
 						dns_answer = resolver.resolve(dns_request.question[0].name, dns_request.question[0].rdtype)
 
 						response = dns.message.make_response(dns_request)
@@ -46,8 +57,6 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 						self.send_header('Content-Type', 'application/dns-message')
 						self.end_headers()
 						self.wfile.write(response_wire)
-					except:
-						pass
 
 				except Exception as e:
 					self.send_custom_error(500)
@@ -55,6 +64,12 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 				self.send_custom_error(400)
 		else:
 			self.send_custom_error(404)
+
+	def is_blocked(self, domain):
+		for blocked_domain in BLOCKLIST:
+			if domain.endswith(blocked_domain):
+				return True
+		return False
 
 	def log_dns_request(self, query):
 		"""Log DNS request details to the console."""
@@ -72,11 +87,11 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 			try:
 				dns_request = dns.message.from_wire(dns_query_decoded)
 				domain_name = dns_request.question[0].name.to_text()
-				print(f"{current_time} - Request from {self.client_address[0]} for {domain_name}")
+				#print(f"{current_time} - Request from {self.client_address[0]} for {domain_name}")
 			except Exception as e:
 				print(f"{current_time} - Error extracting domain name: {str(e)}")
 		else:
-			print(f"{current_time} - Request from {self.client_address[0]} for {self.path}")
+			#print(f"{current_time} - Request from {self.client_address[0]} for {self.path}")
 			print(f"{current_time} - No DNS query found to decode.")
 
 	def log_message(self, format, *args):
