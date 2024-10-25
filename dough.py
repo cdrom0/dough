@@ -31,7 +31,6 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 					domain_name = dns_request.question[0].name.to_text().rstrip('.')
 
 					if self.is_blocked(domain_name):
-						#print(f"Blocked domain requested: {domain_name}")
 
 						response = dns.message.make_response(dns_request)
 						response.set_rcode(dns.rcode.NXDOMAIN)
@@ -86,8 +85,12 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 
 			try:
 				dns_request = dns.message.from_wire(dns_query_decoded)
-				domain_name = dns_request.question[0].name.to_text()
-				#print(f"{current_time} - Request from {self.client_address[0]} for {domain_name}")
+				domain_name = dns_request.question[0].name.to_text().rstrip('.')
+				if self.is_blocked(domain_name):
+					print(f"--> Blocked domain requested: {domain_name} <--")
+				else:
+					print(f"{current_time} - Request from {self.client_address[0]} for {domain_name}")
+
 			except Exception as e:
 				print(f"{current_time} - Error extracting domain name: {str(e)}")
 		else:
