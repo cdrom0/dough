@@ -4,8 +4,12 @@ import dns.message
 import dns.resolver
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
+import colorama
+from colorama import Fore, Style
 
 # chromium-based custom dns config: https://example.net/my-custom-query{?dns}
+
+colorama.init()
 
 BLOCKLIST = [] # block domains, list
 
@@ -43,19 +47,23 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 
 					else:
 						resolver = dns.resolver.Resolver()
-						dns_answer = resolver.resolve(dns_request.question[0].name, dns_request.question[0].rdtype)
 
-						response = dns.message.make_response(dns_request)
+						try:
+							dns_answer = resolver.resolve(dns_request.question[0].name, dns_request.question[0].rdtype)
 
-						for rdata in dns_answer:
-							response.answer.append(dns.rrset.from_rdata(dns_request.question[0].name, 300, rdata))
+							response = dns.message.make_response(dns_request)
 
-						response_wire = response.to_wire()
+							for rdata in dns_answer:
+								response.answer.append(dns.rrset.from_rdata(dns_request.question[0].name, 300, rdata))
 
-						self.send_response(200)
-						self.send_header('Content-Type', 'application/dns-message')
-						self.end_headers()
-						self.wfile.write(response_wire)
+							response_wire = response.to_wire()
+
+							self.send_response(200)
+							self.send_header('Content-Type', 'application/dns-message')
+							self.end_headers()
+							self.wfile.write(response_wire)
+						except Exception as e:
+							pass
 
 				except Exception as e:
 					self.send_custom_error(500)
@@ -87,9 +95,11 @@ class DoHDNSHandler(BaseHTTPRequestHandler):
 				dns_request = dns.message.from_wire(dns_query_decoded)
 				domain_name = dns_request.question[0].name.to_text().rstrip('.')
 				if self.is_blocked(domain_name):
-					print(f"--> Blocked domain requested: {domain_name} <--")
+					pass
+					#print(f"--> {Fore.RED}Blocked domain requested from {self.client_address[0]} for{Style.RESET_ALL} {domain_name}")
 				else:
-					print(f"{current_time} - Request from {self.client_address[0]} for {domain_name}")
+					pass
+					#print(f"{current_time} - Request from {Fore.YELLOW}{self.client_address[0]}{Style.RESET_ALL} for {Fore.GREEN}{domain_name}{Style.RESET_ALL}")
 
 			except Exception as e:
 				print(f"{current_time} - Error extracting domain name: {str(e)}")
